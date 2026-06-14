@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <!-- 核心修正：加入 maximum-scale=1.0 與 user-scalable=no，從系統端限制網頁自動縮放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>日常・愛車開銷手帳</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #FAF7F2; /* 溫暖奶油麥芽色 */
+            color: #4A3F35; /* 溫馨深可可色 */
+        }
+
+        .serif-font {
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+        }
+
+        /* 韓式微風手帳質感卡片 */
+        .korean-card {
+            background-color: #FFFFFF;
+            border: 1px solid #F2EDE4;
+            border-radius: 20px;
+            box-shadow: 0 4px 18px -2px rgba(213, 197, 181, 0.08);
+        }
+
+        /* 輸入框與按鈕 */
+        .korean-input {
+            background-color: #FDFDFD;
+            border: 1.5px solid #EAE5DC;
+            border-radius: 12px;
+            color: #4A3F35;
+            transition: all 0.2s ease-in-out;
+            /* 核心修正：字體強制為 16px。當 input 的 font-size >= 16px 時，iOS Safari 就不會點擊自動放大畫面 */
+            font-size: 16px !important; 
+            height: 40px; /* 統一輸入框高度 */
+        }
+
+        .korean-input:focus {
+            outline: none;
+            border-color: #C5A88F;
+            box-shadow: 0 0 0 4px rgba(197, 168, 143, 0.12);
+        }
+
+        /* 修正手機端原生日期輸入框高度與預設樣式不對齊跑位的問題 */
+        input[type="date"] {
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        /* 底部導覽列模糊質感 */
+        .nav-blur {
+            background-color: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid #F2EDE4;
+        }
+
+        /* 隱藏滾動條 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* 淡入動畫 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-28">
+
+    <!-- 頂部韓系美學 Bar -->
+    <header class="border-b border-[#F2EDE4] bg-white/80 backdrop-blur-md sticky top-0 z-30">
+        <div class="container mx-auto px-5 py-4 max-w-md md:max-w-lg flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-[#F3ECE3] text-[#A78B75] p-2 rounded-xl">
+                    <i data-lucide="bike" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold tracking-wider text-[#5A4E42]">My Ride Story</h1>
+                </div>
+            </div>
+            <span class="text-[10px] text-[#A78B75] bg-[#F3ECE3] px-3 py-1 rounded-full font-bold select-none">
+                今日手帳
+            </span>
+        </div>
+    </header>
+
+    <!-- 主容器：極簡精緻手機 App 寬度比例 -->
+    <main class="container mx-auto px-4 py-5 max-w-md md:max-w-lg">
+
+        <!-- ==================== 分頁一：手帳首頁 🏠 ==================== -->
+        <section id="tab-home" class="space-y-4 animate-fade-in">
+            <!-- 極簡儀表板數值 (高度自適應，採用標準比例與內距，防止小螢幕擠壓) -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white rounded-2xl p-4 sm:p-5 border border-[#F2EDE4] shadow-sm flex flex-col justify-between space-y-2.5">
+                    <span class="text-[10px] text-[#9E8E7F] font-bold tracking-wider">目前里程 Mileage</span>
+                    <div class="flex items-baseline space-x-1">
+                        <span class="text-2xl font-bold text-[#5A4E42] serif-font leading-none" id="home-mileage-num">0</span>
+                        <span class="text-[10px] text-[#9E8E7F]">km</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-4 sm:p-5 border border-[#F2EDE4] shadow-sm flex flex-col justify-between space-y-2.5">
+                    <span class="text-[10px] text-[#9E8E7F] font-bold tracking-wider">分期進度 Installment</span>
+                    <div class="flex items-baseline space-x-1">
+                        <span class="text-2xl font-bold text-[#5A4E42] serif-font leading-none" id="home-installments-num">0 / 24</span>
+                        <span class="text-[10px] text-[#9E8E7F]">期</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 簡單保養提示快捷卡片 (採用彈性排列，防文字與進度條重合) -->
+            <div class="bg-white rounded-2xl p-4 border border-[#F2EDE4] shadow-sm flex items-center justify-between space-x-3">
+                <div class="flex items-center space-x-3 min-w-0 flex-1">
+                    <div class="p-2 bg-[#EDF2EE] text-[#698A5D] rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="wrench" class="w-5 h-5"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[10px] text-[#9E8E7F] font-medium">保養提醒</p>
+                        <p class="text-xs font-bold text-[#5A4E42] mt-0.5 truncate" id="home-oil-status">載入中...</p>
+                    </div>
+                </div>
+                <div class="w-20 bg-[#FAF7F2] h-1.5 rounded-full overflow-hidden flex-shrink-0">
+                    <div id="home-oil-progress" class="bg-[#8EA885] h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 分期預警快捷卡片 -->
+            <div class="bg-white rounded-2xl p-4 border border-[#F2EDE4] shadow-sm flex items-center justify-between space-x-3">
+                <div class="flex items-center space-x-3 min-w-0 flex-1">
+                    <div class="p-2 bg-[#FAF0E6] text-[#C6854C] rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[10px] text-[#9E8E7F] font-medium">下一期分期繳納截止</p>
+                        <p class="text-xs font-bold text-[#5A4E42] mt-0.5 truncate" id="home-installment-due">載入中...</p>
+                    </div>
+                </div>
+                <button onclick="switchTab('installments')" class="text-xs text-[#C5A88F] font-bold hover:underline flex-shrink-0 ml-2">去繳納</button>
+            </div>
+
+            <!-- 🏠 首頁的「新增日常開銷」表單卡片 (極致黃金比例與字體 16px 防縮放) -->
+            <div class="korean-card p-4 sm:p-5 space-y-4">
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-5 bg-[#CBB29D] rounded-full"></span>
+                    <h2 class="text-xs font-bold text-[#5A4E42] tracking-wider">新增日常開銷</h2>
+                </div>
+
+                <form id="homeExpenseForm" class="space-y-4">
+                    
+                    <!-- 1. 開銷分類 -->
+                    <div>
+                        <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1.5">開銷分類</label>
+                        <div class="grid grid-cols-3 gap-2.5">
+                            <label class="border border-[#EAE5DC] rounded-xl p-1.5 sm:p-2.5 flex flex-col items-center justify-center cursor-pointer hover:bg-[#FAF0E6] has-[:checked]:bg-[#FAF0E6] has-[:checked]:border-[#D3B19A] has-[:checked]:ring-2 has-[:checked]:ring-[#EFE4D8] transition-all">
+                                <input type="radio" name="home-category" value="加油" required class="sr-only" checked>
+                                <i data-lucide="fuel" class="w-5 h-5 text-[#DDA15E] mb-1"></i>
+                                <span class="text-[10px] font-medium text-[#5A4E42]">加油</span>
+                            </label>
+                            <label class="border border-[#EAE5DC] rounded-xl p-1.5 sm:p-2.5 flex flex-col items-center justify-center cursor-pointer hover:bg-[#EDF2EE] has-[:checked]:bg-[#EDF2EE] has-[:checked]:border-[#A3B899] has-[:checked]:ring-2 has-[:checked]:ring-[#E1ECE3] transition-all">
+                                <input type="radio" name="home-category" value="保養" class="sr-only">
+                                <i data-lucide="wrench" class="w-5 h-5 text-[#8EA885] mb-1"></i>
+                                <span class="text-[10px] font-medium text-[#5A4E42]">保養</span>
+                            </label>
+                            <label class="border border-[#EAE5DC] rounded-xl p-1.5 sm:p-2.5 flex flex-col items-center justify-center cursor-pointer hover:bg-[#EEF1F6] has-[:checked]:bg-[#EEF1F6] has-[:checked]:border-[#9BB1D6] has-[:checked]:ring-2 has-[:checked]:ring-[#DFE5EE] transition-all">
+                                <input type="radio" name="home-category" value="其他" class="sr-only">
+                                <i data-lucide="receipt" class="w-5 h-5 text-[#8FA2C4] mb-1"></i>
+                                <span class="text-[10px] font-medium text-[#5A4E42]">其他</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 2. 日期與金額並排 (高度統一為 40px，比例精巧對稱) -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- 消費日期 -->
+                        <div>
+                            <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1.5">消費日期</label>
+                            <input type="date" id="home-date" required class="korean-input w-full px-3 text-xs">
+                        </div>
+                        
+                        <!-- 金額 -->
+                        <div>
+                            <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1.5">金額 (NTD)</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2 text-[#A8988A] text-xs font-medium">$</span>
+                                <input type="number" id="home-amount" min="1" placeholder="金額" required class="korean-input w-full pl-6 pr-2 text-xs">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. 細節備註 (單獨滿版，高度為 40px) -->
+                    <div>
+                        <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1.5">細節備註 (選填)</label>
+                        <input type="text" id="home-note" placeholder="例如：95汽油加滿" class="korean-input w-full px-3 text-xs">
+                    </div>
+
+                    <!-- 提交按鈕 -->
+                    <button type="submit" class="w-full bg-[#C5A88F] hover:bg-[#B7957A] text-white font-medium py-2.5 rounded-xl transition text-xs shadow-md shadow-[#C5A88F]/10 flex items-center justify-center space-x-1">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>確認記帳 ☕</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- 最近紀錄 -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center px-1">
+                    <h3 class="text-xs font-bold text-[#5A4E42] flex items-center">
+                        <span class="w-1 h-3.5 bg-[#CBB29D] rounded-full mr-2"></span>
+                        最近新增紀錄
+                    </h3>
+                    <button onclick="switchTab('history')" class="text-[10px] text-[#8E7E70] hover:underline">查看全部</button>
+                </div>
+
+                <div id="home-recent-list" class="space-y-2.5">
+                    <!-- 動態載入最近紀錄 -->
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 分頁二：分期手帳 🗓️ ==================== -->
+        <section id="tab-installments" class="hidden space-y-4 animate-fade-in">
+            <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-6 bg-[#CBB29D] rounded-full"></span>
+                    <h2 class="text-base font-bold text-[#5A4E42]">機車分期手帳</h2>
+                </div>
+                <span class="text-[10px] bg-[#EFE4D8] text-[#8E7E70] px-3 py-1 rounded-full font-medium">總共 24 期</span>
+            </div>
+
+            <!-- 分期付款統計看板 -->
+            <div class="korean-card p-5 space-y-4">
+                <div class="grid grid-cols-2 gap-4 divide-x divide-[#F2EDE4]">
+                    <div class="text-center">
+                        <p class="text-[10px] text-[#9E8E7F] font-medium">已繳納期數</p>
+                        <p class="text-xl font-bold text-[#5A4E42] mt-1 serif-font" id="inst-summary-count">0 / 24</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-[10px] text-[#9E8E7F] font-medium">剩餘未繳金額</p>
+                        <p class="text-xl font-bold text-[#5A4E42] mt-1 serif-font" id="inst-summary-remain">$0</p>
+                    </div>
+                </div>
+                <div class="border-t border-[#FAF6F0] pt-3 text-center">
+                    <span class="text-[10px] text-[#9E8E7F]">已繳總花費：</span>
+                    <span class="text-xs font-bold text-[#5A4E42]" id="inst-summary-paid">$0</span>
+                </div>
+            </div>
+
+            <!-- 24期時間軸列表 -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-bold text-[#5A4E42] px-1 flex items-center">
+                    <span class="w-1 h-3.5 bg-[#CBB29D] rounded-full mr-2"></span>
+                    24 期付款時程明細
+                </h3>
+                <div class="space-y-2.5 max-h-[400px] overflow-y-auto pr-1 no-scrollbar" id="installment-timeline">
+                    <!-- 由 JavaScript 動態生成 24 期的卡片 -->
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 分頁三：開銷圖表 📊 ==================== -->
+        <section id="tab-stats" class="hidden space-y-4 animate-fade-in">
+            <div class="flex items-center space-x-2 mb-1">
+                <span class="w-1.5 h-6 bg-[#CBB29D] rounded-full"></span>
+                <h2 class="text-base font-bold text-[#5A4E42]">開銷圖表分析</h2>
+            </div>
+
+            <!-- 總花費與分類卡片 -->
+            <div class="korean-card p-4 sm:p-5 space-y-4">
+                <div class="text-center py-3 bg-[#FAF7F2] rounded-2xl border border-[#F2EDE4]">
+                    <p class="text-[10px] text-[#9E8E7F] font-medium">累計總花費 (含已繳分期)</p>
+                    <p class="text-2xl font-bold text-[#5A4E42] mt-0.5 serif-font" id="totalAmount">$0</p>
+                </div>
+
+                <!-- 四大類別細節 (完美格線與內距對齊) -->
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div class="bg-[#FAF0E6]/60 p-2.5 sm:p-3 rounded-xl border border-[#F2E0D0]/40 flex items-center justify-between px-3">
+                        <span class="text-[10px] text-[#9E8E7F]">⛽ 加油費用</span>
+                        <span class="text-xs font-bold text-[#5A4E42]" id="oilAmount">$0</span>
+                    </div>
+                    <div class="bg-[#EDF2EE]/60 p-2.5 sm:p-3 rounded-xl border border-[#DEE7E0]/40 flex items-center justify-between px-3">
+                        <span class="text-[10px] text-[#9E8E7F]">🔧 保養維修</span>
+                        <span class="text-xs font-bold text-[#5A4E42]" id="maintainAmount">$0</span>
+                    </div>
+                    <div class="bg-[#EEF1F6]/60 p-2.5 sm:p-3 rounded-xl border border-[#DFE4ED]/40 flex items-center justify-between px-3">
+                        <span class="text-[10px] text-[#9E8E7F]">🧾 其他支出</span>
+                        <span class="text-xs font-bold text-[#5A4E42]" id="otherAmount">$0</span>
+                    </div>
+                    <div class="bg-[#F3ECE3]/60 p-2.5 sm:p-3 rounded-xl border border-[#E6DFD5]/40 flex items-center justify-between px-3">
+                        <span class="text-[10px] text-[#9E8E7F]">🗓️ 已繳分期</span>
+                        <span class="text-xs font-bold text-[#5A4E42]" id="instAmount">$0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 圓餅圖容器 -->
+            <div class="korean-card p-5">
+                <h3 class="text-xs font-bold text-[#5A4E42] mb-4 flex items-center">
+                    <span class="w-1 h-3.5 bg-[#CBB29D] rounded-full mr-2"></span>
+                    各項開銷比例
+                </h3>
+                <div class="relative h-60 flex items-center justify-center">
+                    <div id="noDataAlert" class="absolute inset-0 flex flex-col items-center justify-center text-[#9E8E7F] bg-[#FAF7F2] rounded-2xl">
+                        <i data-lucide="bar-chart-2" class="w-6 h-6 mb-2 text-[#A89A8D]"></i>
+                        <p class="text-xs font-medium">尚無任何開銷數據</p>
+                    </div>
+                    <canvas id="expenseChart" class="hidden"></canvas>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 分頁四：記帳歷史 📜 ==================== -->
+        <section id="tab-history" class="hidden space-y-4 animate-fade-in">
+            <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-6 bg-[#CBB29D] rounded-full"></span>
+                    <h2 class="text-base font-bold text-[#5A4E42]">記帳歷史明細</h2>
+                </div>
+            </div>
+
+            <!-- 搜尋與篩選工具欄 -->
+            <div class="korean-card p-4 space-y-3">
+                <!-- 搜尋框 -->
+                <div class="relative">
+                    <span class="absolute left-3.5 top-2.5 text-[#A8988A]">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                    </span>
+                    <input type="text" id="searchKeyword" placeholder="搜尋備註內容..." class="korean-input w-full pl-10 pr-4 py-2 text-xs focus:outline-none">
+                </div>
+                <!-- 篩選選單 (橫向無阻力滑動手帳軸) -->
+                <div class="flex overflow-x-auto no-scrollbar gap-2 pb-1 -mx-1 px-1">
+                    <button onclick="setFilter('全部')" id="filter-全部" class="py-1.5 px-4 text-[10px] font-bold rounded-full border border-[#C5A88F] bg-[#C5A88F] text-white transition flex-shrink-0 shadow-sm">全部</button>
+                    <button onclick="setFilter('加油')" id="filter-加油" class="py-1.5 px-4 text-[10px] font-medium rounded-full border border-[#EAE5DC] bg-white text-[#8E7E70] transition flex-shrink-0">⛽ 加油</button>
+                    <button onclick="setFilter('保養')" id="filter-保養" class="py-1.5 px-4 text-[10px] font-medium rounded-full border border-[#EAE5DC] bg-white text-[#8E7E70] transition flex-shrink-0">🔧 保養</button>
+                    <button onclick="setFilter('其他')" id="filter-其他" class="py-1.5 px-4 text-[10px] font-medium rounded-full border border-[#EAE5DC] bg-white text-[#8E7E70] transition flex-shrink-0">🧾 其他</button>
+                    <button onclick="setFilter('分期')" id="filter-分期" class="py-1.5 px-4 text-[10px] font-medium rounded-full border border-[#EAE5DC] bg-white text-[#8E7E70] transition flex-shrink-0">🗓️ 分期</button>
+                </div>
+            </div>
+
+            <!-- 歷史列表區 -->
+            <div id="history-container" class="space-y-2.5">
+                <!-- 列表將由 JavaScript 動態生成 card -->
+            </div>
+
+            <!-- 無資料提示 -->
+            <div id="noHistoryAlert" class="korean-card py-12 flex flex-col items-center justify-center text-[#9E8E7F] hidden">
+                <i data-lucide="coffee" class="w-8 h-8 mb-2 text-[#A89A8D]"></i>
+                <p class="text-xs font-medium">找不到相符的消費明細</p>
+            </div>
+        </section>
+
+
+        <!-- ==================== 分頁五：愛車設定 ⚙️ ==================== -->
+        <section id="tab-settings" class="hidden space-y-4 animate-fade-in">
+            <div class="flex items-center space-x-2 mb-1">
+                <span class="w-1.5 h-6 bg-[#CBB29D] rounded-full"></span>
+                <h2 class="text-base font-bold text-[#5A4E42]">設定與保養管理</h2>
+            </div>
+
+            <!-- 基本設定 (設定欄位也同步升級 16px 防止聚焦縮放) -->
+            <div class="korean-card p-4 sm:p-5 space-y-4">
+                <h3 class="text-xs font-bold text-[#5A4E42] border-b border-[#FAF6F0] pb-2.5 flex items-center">
+                    <i data-lucide="info" class="w-4 h-4 mr-2 text-[#C5A88F]"></i>
+                    基本資料
+                </h3>
+                <form id="settingsForm" class="space-y-3.5">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1">愛車暱稱</label>
+                            <input type="text" id="setting-nickname" placeholder="例如: 我的小愛" class="korean-input w-full px-3 text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1">車牌號碼</label>
+                            <input type="text" id="setting-plate" placeholder="例如: ABC-1234" class="korean-input w-full px-3 text-xs font-mono">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1">目前總里程 (km)</label>
+                        <input type="number" id="setting-mileage" min="0" placeholder="例如: 8500" class="korean-input w-full px-3 text-xs">
+                    </div>
+                    <button type="submit" class="w-full bg-[#C5A88F] hover:bg-[#B7957A] text-white font-medium py-2.5 rounded-xl transition text-xs shadow-md">
+                        儲存愛車基本檔案
+                    </button>
+                </form>
+            </div>
+
+            <!-- 保養週期 -->
+            <div class="korean-card p-4 sm:p-5 space-y-4">
+                <h3 class="text-xs font-bold text-[#5A4E42] border-b border-[#FAF6F0] pb-2.5 flex items-center">
+                    <i data-lucide="bell" class="w-4 h-4 mr-2 text-[#8EA885]"></i>
+                    機油保養提醒
+                </h3>
+                <form id="oilReminderForm" class="space-y-3.5">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1">上次更換機油里程 (km)</label>
+                            <input type="number" id="setting-last-oil" min="0" placeholder="例如: 8000" class="korean-input w-full px-3 text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1">更換週期 (km)</label>
+                            <input type="number" id="setting-oil-interval" min="1" placeholder="例如: 1000" class="korean-input w-full px-3 text-xs">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-[#8EA885] hover:bg-[#7D9674] text-white font-medium py-2.5 rounded-xl transition text-xs">
+                        更新保養提醒設定
+                    </button>
+                </form>
+            </div>
+
+            <!-- 重設資料 -->
+            <div class="korean-card p-4 sm:p-5 space-y-3">
+                <h3 class="text-xs font-bold text-rose-700 flex items-center">
+                    <i data-lucide="shield-alert" class="w-4 h-4 mr-2"></i>
+                    危險資料管理
+                </h3>
+                <button onclick="confirmResetAll()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-medium py-2.5 rounded-xl transition text-xs">
+                    清除本機所有記帳與設定資料
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== 底部固定式導覽列 (Bottom Tab Bar - 完美校正圖標標準比例與對齊) ==================== -->
+    <nav class="fixed bottom-0 inset-x-0 nav-blur z-40">
+        <div class="container mx-auto max-w-md md:max-w-lg px-2 py-2 flex justify-around items-center">
+            <!-- 導覽 1 -->
+            <button onclick="switchTab('home')" id="navBtn-home" class="flex flex-col items-center py-1 px-3 text-[#C5A88F] scale-105 transition-all relative">
+                <i data-lucide="home" class="w-5 h-5 mb-1"></i>
+                <span class="text-[9px] font-bold">首頁</span>
+                <span id="dot-home" class="absolute top-1.5 right-6 w-1 h-1 bg-[#C5A88F] rounded-full"></span>
+            </button>
+            <!-- 導覽 2 (分期) -->
+            <button onclick="switchTab('installments')" id="navBtn-installments" class="flex flex-col items-center py-1 px-3 text-[#8E7E70] hover:text-[#5A4E42] transition-all relative">
+                <i data-lucide="calendar" class="w-5 h-5 mb-1"></i>
+                <span class="text-[9px] font-medium">分期</span>
+            </button>
+            <!-- 導覽 3 -->
+            <button onclick="switchTab('stats')" id="navBtn-stats" class="flex flex-col items-center py-1 px-3 text-[#8E7E70] hover:text-[#5A4E42] transition-all relative">
+                <i data-lucide="pie-chart" class="w-5 h-5 mb-1"></i>
+                <span class="text-[9px] font-medium">圖表</span>
+            </button>
+            <!-- 導覽 4 -->
+            <button onclick="switchTab('history')" id="navBtn-history" class="flex flex-col items-center py-1 px-3 text-[#8E7E70] hover:text-[#5A4E42] transition-all relative">
+                <i data-lucide="book-open" class="w-5 h-5 mb-1"></i>
+                <span class="text-[9px] font-medium">歷史</span>
+            </button>
+            <!-- 導覽 5 -->
+            <button onclick="switchTab('settings')" id="navBtn-settings" class="flex flex-col items-center py-1 px-3 text-[#8E7E70] hover:text-[#5A4E42] transition-all relative">
+                <i data-lucide="settings" class="w-5 h-5 mb-1"></i>
+                <span class="text-[9px] font-medium">設定</span>
+            </button>
+        </div>
+    </nav>
+
+
+    <!-- ==================== 彈出式：登記/修改分期繳納 Modal (輸入框高度同步校正) ==================== -->
+    <div id="paymentModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="korean-card w-full max-w-xs p-5 text-center animate-fade-in relative">
+            
+            <button onclick="closePaymentModal()" class="absolute top-4 right-4 text-[#8E7E70] hover:bg-[#FAF7F2] p-1 rounded-full transition">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+
+            <div class="bg-[#FAF0E6] text-[#C6854C] p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+                <i data-lucide="wallet" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-sm font-bold text-[#5A4E42] mb-1" id="paymentModalTitle">登記第 1 期繳納</h3>
+            <p class="text-xs text-[#9E8E7F] mb-4" id="paymentModalDetail">應繳金額：$3,292</p>
+
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-[10px] font-semibold text-[#8E7E70] mb-1">選擇繳納日期</label>
+                    <input type="date" id="payment-date" class="korean-input w-full px-3 text-xs">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="closePaymentModal()" class="py-2.5 text-xs font-medium text-[#8E7E70] bg-[#FAF7F2] border border-[#EAE5DC] rounded-xl hover:bg-[#F3ECE3] transition">
+                        取消
+                    </button>
+                    <button onclick="submitPayment()" class="py-2.5 text-xs font-medium text-white bg-[#C5A88F] hover:bg-[#B7957A] rounded-xl transition">
+                        確認已繳
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ==================== 安全清空防呆 Modal ==================== -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="korean-card w-full max-w-xs p-5 text-center animate-fade-in">
+            <div class="bg-rose-50 text-rose-600 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+                <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+            </div>
+            <h3 class="text-sm font-bold text-[#5A4E42] mb-1">確定要清除所有資料嗎？</h3>
+            <p class="text-xs text-[#9E8E7F] mb-4">此操作將清空所有花費明細與愛車設定，包含已登記的分期款項。</p>
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="closeConfirmModal()" class="py-2.5 text-xs font-medium text-[#8E7E70] bg-[#FAF7F2] border border-[#EAE5DC] rounded-xl transition">取消</button>
+                <button onclick="executeResetAll()" class="py-2.5 text-xs font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition">確認清除</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 韓系柔和 Toast 提示框 -->
+    <div id="toast" class="fixed bottom-24 right-6 bg-[#4A3F35] text-[#FAF7F2] px-4 py-2.5 rounded-xl shadow-xl flex items-center space-x-3 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i data-lucide="check-circle-2" class="w-4 h-4 text-[#E3C2B0]" id="toastIcon"></i>
+        <span id="toastMessage" class="text-xs font-medium">這是一則提示訊息</span>
+    </div>
+
+
+    <script>
+        // 初始化 Lucide 圖標
+        lucide.createIcons();
+
+        // 預設愛車基本檔案
+        const defaultSettings = {
+            nickname: "我的機車手帳",
+            plate: "ABC-1234",
+            spec: "125 cc",
+            mileage: 8500,
+            lastOil: 8000,
+            oilInterval: 1000
+        };
+
+        // 預設日常花費紀錄
+        const defaultExpenses = [
+            { id: 1, date: getOffsetDate(-1), category: "加油", amount: 145, note: "95汽油加滿" },
+            { id: 2, date: getOffsetDate(-4), category: "保養", amount: 450, note: "更換原廠機油 & 齒輪油" },
+            { id: 3, date: getOffsetDate(-8), category: "其他", amount: 120, note: "洗車與愛車打蠟" }
+        ];
+
+        // 輔助函式：取得日期
+        function getOffsetDate(daysOffset) {
+            const date = new Date();
+            date.setDate(date.getDate() + daysOffset);
+            return date.toISOString().split('T')[0];
+        }
+
+        // 初始化/載入分期付款資料 (共24期，起點為 2025-09-18，每期18號)
+        // 1-23期: 3292 元，第24期: 3284 元
+        function initDefaultInstallments() {
+            const list = [];
+            let currentDue = new Date('2025-09-18');
+            
+            for (let i = 1; i <= 24; i++) {
+                const amount = (i === 24) ? 3284 : 3292;
+                const dueDateStr = currentDue.toISOString().split('T')[0];
+                
+                // 模擬數據：2026-06-14 之前的期數預設為已繳
+                const isPaid = currentDue < new Date('2026-06-14');
+                list.push({
+                    period: i,
+                    dueDate: dueDateStr,
+                    amount: amount,
+                    paid: isPaid,
+                    paidDate: isPaid ? dueDateStr : null
+                });
+
+                // 跳至下個月的 18 號
+                currentDue.setMonth(currentDue.getMonth() + 1);
+            }
+            return list;
+        }
+
+        // 載入 localStorage 資料
+        let expenses = JSON.parse(localStorage.getItem('motor_expenses_v3')) || defaultExpenses;
+        let bikeSettings = JSON.parse(localStorage.getItem('motor_settings_v3')) || defaultSettings;
+        let installments = JSON.parse(localStorage.getItem('motor_installments_v3')) || initDefaultInstallments();
+        
+        let currentFilter = '全部';
+        let expenseChart = null;
+        let activePaymentPeriod = null; // 當前正在編輯繳費的期數
+
+        // 初始化主頁表單日期預設為今天
+        document.getElementById('home-date').value = new Date().toISOString().split('T')[0];
+
+        // 註冊 DOM 元素
+        const totalAmountEl = document.getElementById('totalAmount');
+        const oilAmountEl = document.getElementById('oilAmount');
+        const maintainAmountEl = document.getElementById('maintainAmount');
+        const otherAmountEl = document.getElementById('otherAmount');
+        const instAmountEl = document.getElementById('instAmount');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+
+        // Toast 訊息控制
+        function showToast(message, type = 'success') {
+            toastMessage.textContent = message;
+            if (type === 'success') {
+                toastIcon.className = "w-4 h-4 text-[#E3C2B0]";
+            } else {
+                toastIcon.className = "w-4 h-4 text-rose-300";
+            }
+            lucide.createIcons();
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // 切換主頁面 (5大 Tabs)
+        window.switchTab = function(tabName) {
+            const tabs = ['home', 'installments', 'stats', 'history', 'settings'];
+            tabs.forEach(t => {
+                const element = document.getElementById(`tab-${t}`);
+                const btn = document.getElementById(`navBtn-${t}`);
+                const dot = document.getElementById(`dot-${t}`);
+
+                if (t === tabName) {
+                    element.classList.remove('hidden');
+                    // 導覽按鈕選中樣式
+                    btn.className = "flex flex-col items-center py-1 px-3 text-[#C5A88F] scale-105 transition-all relative font-bold";
+                    btn.querySelector('svg').style.stroke = "#C5A88F";
+                    if (dot) dot.classList.remove('hidden');
+                } else {
+                    element.classList.add('hidden');
+                    btn.className = "flex flex-col items-center py-1 px-3 text-[#8E7E70] hover:text-[#5A4E42] transition-all relative";
+                    btn.querySelector('svg').style.stroke = "#8E7E70";
+                    if (dot) dot.classList.add('hidden');
+                }
+            });
+
+            // 回調更新對應分頁內容
+            if (tabName === 'stats') {
+                updateStats();
+            } else if (tabName === 'history') {
+                renderHistoryList();
+            } else if (tabName === 'home') {
+                renderHome();
+            } else if (tabName === 'installments') {
+                renderInstallments();
+            } else if (tabName === 'settings') {
+                loadSettingsToForm();
+            }
+        }
+
+        // 保存資料
+        function saveAllData() {
+            localStorage.setItem('motor_expenses_v3', JSON.stringify(expenses));
+            localStorage.setItem('motor_settings_v3', JSON.stringify(bikeSettings));
+            localStorage.setItem('motor_installments_v3', JSON.stringify(installments));
+        }
+
+        // ==================== 首頁 (Tab 1) 邏輯 ====================
+        function renderHome() {
+            // 設定頂部小儀表板里程與分期繳納期數
+            document.getElementById('home-mileage-num').textContent = (bikeSettings.mileage || 0).toLocaleString();
+            
+            const paidCount = installments.filter(item => item.paid).length;
+            document.getElementById('home-installments-num').textContent = `${paidCount} / 24`;
+
+            // 1. 計算機油保養進度
+            const diff = (bikeSettings.mileage || 0) - (bikeSettings.lastOil || 0);
+            const interval = bikeSettings.oilInterval || 1000;
+            const remaining = Math.max(0, interval - diff);
+            const percentage = Math.min(100, Math.max(0, (remaining / interval) * 100));
+
+            const homeOilStatus = document.getElementById('home-oil-status');
+            const homeOilProgress = document.getElementById('home-oil-progress');
+            
+            if (remaining === 0) {
+                homeOilStatus.innerHTML = `<span class="text-rose-500 font-extrabold animate-pulse">⚠️ 該更換機油！已超過更換里程</span>`;
+                homeOilProgress.style.width = '100%';
+                homeOilProgress.className = "bg-rose-500 h-full transition-all duration-500";
+            } else {
+                homeOilStatus.textContent = `離下次更換剩餘 ${remaining.toLocaleString()} km`;
+                homeOilProgress.style.width = `${100 - percentage}%`;
+                homeOilProgress.className = "bg-[#8EA885] h-full transition-all duration-500";
+            }
+
+            // 2. 顯示下一期分期預警
+            const upcoming = installments.find(item => !item.paid);
+            const homeInstallmentDue = document.getElementById('home-installment-due');
+            if (upcoming) {
+                homeInstallmentDue.textContent = `第 ${upcoming.period} 期：${upcoming.dueDate} ($${upcoming.amount.toLocaleString()})`;
+            } else {
+                homeInstallmentDue.innerHTML = `<span class="text-[#8EA885] font-bold">🎉 所有分期皆已繳清囉！</span>`;
+            }
+
+            // 3. 加載最近兩筆紀錄 (合併日常與已繳分期，方便查看)
+            const combinedList = getCombinedExpenses();
+            combinedList.sort((a, b) => new Date(b.date) - new Date(a.date));
+            const recentContainer = document.getElementById('home-recent-list');
+            recentContainer.innerHTML = '';
+
+            if (combinedList.length === 0) {
+                recentContainer.innerHTML = `
+                    <div class="bg-white rounded-xl p-4 text-center border border-[#F2EDE4] text-xs text-[#9E8E7F]">
+                        還沒有紀錄，快使用上方的表單新增吧！
+                    </div>
+                `;
+            } else {
+                combinedList.slice(0, 2).forEach(item => {
+                    let badgeBg = "bg-[#FAF0E6] text-[#C6854C]";
+                    let iconName = "fuel";
+                    if (item.category === '保養') {
+                        badgeBg = "bg-[#EDF2EE] text-[#698A5D]";
+                        iconName = "wrench";
+                    } else if (item.category === '其他') {
+                        badgeBg = "bg-[#EEF1F6] text-[#6B80A5]";
+                        iconName = "receipt";
+                    } else if (item.category === '分期') {
+                        badgeBg = "bg-[#FAF5EF] text-[#A78B75] border-[#F2EDE4]";
+                        iconName = "calendar";
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = "bg-white p-3.5 rounded-2xl border border-[#F2EDE4] flex justify-between items-center shadow-sm";
+                    card.innerHTML = `
+                        <div class="flex items-center space-x-2.5">
+                            <div class="p-2 rounded-xl ${badgeBg}">
+                                <i data-lucide="${iconName}" class="w-3.5 h-3.5"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold text-[#5A4E42]">${item.note || item.category}</p>
+                                <p class="text-[9px] text-[#9E8E7F] mt-0.5">${item.date} • ${item.category}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-[#5A4E42]">$${item.amount.toLocaleString()}</span>
+                    `;
+                    recentContainer.appendChild(card);
+                });
+                lucide.createIcons();
+            }
+        }
+
+        // ==================== 首頁記帳表單提交事件 🏠 ====================
+        document.getElementById('homeExpenseForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const date = document.getElementById('home-date').value;
+            const category = document.querySelector('input[name="home-category"]:checked').value;
+            const amount = parseInt(document.getElementById('home-amount').value);
+            const note = document.getElementById('home-note').value.trim();
+
+            if (!date || isNaN(amount) || amount <= 0) {
+                showToast("請輸入正確的日期和金額！", "error");
+                return;
+            }
+
+            const newExpense = {
+                id: Date.now(),
+                date,
+                category,
+                amount,
+                note
+            };
+
+            expenses.push(newExpense);
+            saveAllData();
+            
+            // 重置表單數值 (重新將日期維持為今天)
+            document.getElementById('home-amount').value = '';
+            document.getElementById('home-note').value = '';
+            document.getElementById('home-date').value = new Date().toISOString().split('T')[0];
+            
+            showToast("開銷已成功記錄！🌸", "success");
+
+            // 同步整理畫面資訊
+            renderHome();
+            updateStats();
+            renderHistoryList();
+        });
+
+
+        // ==================== 分期手帳 (Tab 2) 邏輯 ====================
+        function renderInstallments() {
+            const container = document.getElementById('installment-timeline');
+            container.innerHTML = '';
+
+            // 計算統計資訊
+            let paidCount = 0;
+            let paidSum = 0;
+            let remainSum = 0;
+
+            installments.forEach(item => {
+                if (item.paid) {
+                    paidCount++;
+                    paidSum += item.amount;
+                } else {
+                    remainSum += item.amount;
+                }
+
+                // 產生卡片
+                const card = document.createElement('div');
+                card.className = `p-3.5 rounded-2xl border transition flex justify-between items-center ${
+                    item.paid 
+                    ? 'bg-white border-[#F2EDE4] opacity-85' 
+                    : 'bg-white border-[#C5A88F]/40 shadow-sm'
+                }`;
+
+                let statusHTML = '';
+                if (item.paid) {
+                    statusHTML = `
+                        <div class="text-right">
+                            <span class="inline-flex items-center text-[10px] bg-[#EDF2EE] text-[#698A5D] px-2.5 py-0.5 rounded-full font-bold mb-1">
+                                已繳清
+                            </span>
+                            <p class="text-[9px] text-[#9E8E7F]">繳納日期: ${item.paidDate}</p>
+                            <button onclick="cancelPayment(${item.period})" class="text-[9px] text-rose-400 hover:text-rose-600 underline mt-1 block ml-auto">撤銷繳納</button>
+                        </div>
+                    `;
+                } else {
+                    statusHTML = `
+                        <div class="text-right">
+                            <span class="inline-flex items-center text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold mb-1">
+                                未繳納
+                            </span>
+                            <p class="text-[9px] text-[#9E8E7F] mb-1.5">截止日: ${item.dueDate}</p>
+                            <button onclick="openPaymentModal(${item.period})" class="bg-[#C5A88F] hover:bg-[#B7957A] text-white text-[10px] px-3 py-1 rounded-lg transition font-medium">
+                                登記繳納
+                            </button>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold ${
+                            item.paid ? 'bg-[#FAF6F0] text-[#A78B75]' : 'bg-[#FAF0E6] text-[#DDA15E]'
+                        }">
+                            ${item.period}
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-[#5A4E42]">第 ${item.period} 期分期款</h4>
+                            <p class="text-sm font-bold text-[#5A4E42] mt-0.5 serif-font">$${item.amount.toLocaleString()}</p>
+                        </div>
+                    </div>
+                    ${statusHTML}
+                `;
+                container.appendChild(card);
+            });
+
+            // 更新面板
+            document.getElementById('inst-summary-count').textContent = `${paidCount} / 24`;
+            document.getElementById('inst-summary-remain').textContent = `$${remainSum.toLocaleString()}`;
+            document.getElementById('inst-summary-paid').textContent = `$${paidSum.toLocaleString()}`;
+
+            lucide.createIcons();
+        }
+
+        // 開啟分期登記彈窗
+        window.openPaymentModal = function(period) {
+            activePaymentPeriod = period;
+            const target = installments.find(item => item.period === period);
+            if (!target) return;
+
+            document.getElementById('paymentModalTitle').textContent = `登記第 ${period} 期繳納`;
+            document.getElementById('paymentModalDetail').textContent = `繳納金額：$${target.amount.toLocaleString()} (截止日: ${target.dueDate})`;
+            
+            // 預設日期為截止日
+            document.getElementById('payment-date').value = target.dueDate;
+            document.getElementById('paymentModal').classList.remove('hidden');
+        }
+
+        window.closePaymentModal = function() {
+            document.getElementById('paymentModal').classList.add('hidden');
+            activePaymentPeriod = null;
+        }
+
+        // 確認送出登記繳納
+        window.submitPayment = function() {
+            if (!activePaymentPeriod) return;
+            const paidDate = document.getElementById('payment-date').value;
+            if (!paidDate) {
+                showToast("請選擇實際繳款日期！", "error");
+                return;
+            }
+
+            const targetIndex = installments.findIndex(item => item.period === activePaymentPeriod);
+            if (targetIndex > -1) {
+                installments[targetIndex].paid = true;
+                installments[targetIndex].paidDate = paidDate;
+                saveAllData();
+                renderInstallments();
+                closePaymentModal();
+                showToast(`第 ${activePaymentPeriod} 期已登記繳納！✨`, "success");
+            }
+        }
+
+        // 撤銷繳納
+        window.cancelPayment = function(period) {
+            const targetIndex = installments.findIndex(item => item.period === period);
+            if (targetIndex > -1) {
+                installments[targetIndex].paid = false;
+                installments[targetIndex].paidDate = null;
+                saveAllData();
+                renderInstallments();
+                showToast(`已成功撤銷第 ${period} 期繳納`, "success");
+            }
+        }
+
+        // ==================== 合併計算邏輯 (用於圖表與歷史明細) ====================
+        function getCombinedExpenses() {
+            const list = [...expenses];
+            installments.forEach(item => {
+                if (item.paid) {
+                    list.push({
+                        id: `inst-${item.period}`,
+                        date: item.paidDate || item.dueDate,
+                        category: "分期",
+                        amount: item.amount,
+                        note: `繳納機車第 ${item.period} 期分期款`
+                    });
+                }
+            });
+            return list;
+        }
+
+        // ==================== 圖表分析 (Tab 3) 邏輯 ====================
+        function updateStats() {
+            const combined = getCombinedExpenses();
+
+            const totals = combined.reduce((acc, curr) => {
+                acc.total += curr.amount;
+                if (curr.category === '加油') acc.oil += curr.amount;
+                if (curr.category === '保養') acc.maintain += curr.amount;
+                if (curr.category === '其他') acc.other += curr.amount;
+                if (curr.category === '分期') acc.inst += curr.amount;
+                return acc;
+            }, { total: 0, oil: 0, maintain: 0, other: 0, inst: 0 });
+
+            totalAmountEl.textContent = `$${totals.total.toLocaleString()}`;
+            oilAmountEl.textContent = `$${totals.oil.toLocaleString()}`;
+            maintainAmountEl.textContent = `$${totals.maintain.toLocaleString()}`;
+            otherAmountEl.textContent = `$${totals.other.toLocaleString()}`;
+            instAmountEl.textContent = `$${totals.inst.toLocaleString()}`;
+
+            updateChart(totals.oil, totals.maintain, totals.other, totals.inst);
+        }
+
+        // 圓餅圖配色更新 (🔥 修復圖表重複渲染導致顏色與數據不更新的 Bug)
+        function updateChart(oil, maintain, other, inst) {
+            const hasData = oil > 0 || maintain > 0 || other > 0 || inst > 0;
+            const canvas = document.getElementById('expenseChart');
+
+            if (!hasData) {
+                document.getElementById('noDataAlert').classList.remove('hidden');
+                canvas.classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('noDataAlert').classList.add('hidden');
+            canvas.classList.remove('hidden');
+
+            const ctx = canvas.getContext('2d');
+
+            // ⚠️ 關鍵修正：若先前已存在圖表，則將其徹底 Destroy 銷毀，確保新實例套用最新配色與數據
+            if (expenseChart) {
+                expenseChart.destroy();
+                expenseChart = null;
+            }
+
+            expenseChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['加油', '保養', '其他', '分期付款'],
+                    datasets: [{
+                        data: [oil, maintain, other, inst],
+                        backgroundColor: [
+                            '#EAA89B', // 加油：韓系暖杏粉
+                            '#ADC1B1', // 保養：韓系鼠尾草綠
+                            '#8FA2C4', // 其他：韓系微醺藍
+                            '#CBB29D'  // 分期：韓系奶油駝色
+                        ],
+                        borderWidth: 3,
+                        borderColor: '#ffffff',
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: {
+                                    family: "'Noto Sans TC', sans-serif",
+                                    size: 11,
+                                    weight: '500'
+                                },
+                                color: '#5A4E42',
+                                padding: 10
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        // ==================== 記帳歷史 (Tab 4) 邏輯 ====================
+        window.setFilter = function(category) {
+            currentFilter = category;
+            const categories = ['全部', '加油', '保養', '其他', '分期'];
+            categories.forEach(c => {
+                const btn = document.getElementById(`filter-${c}`);
+                if (c === category) {
+                    btn.className = "py-1.5 px-4 text-[10px] font-bold rounded-full border border-[#C5A88F] bg-[#C5A88F] text-white transition flex-shrink-0 shadow-sm";
+                } else {
+                    btn.className = "py-1.5 px-4 text-[10px] font-medium rounded-full border border-[#EAE5DC] bg-white text-[#8E7E70] transition flex-shrink-0";
+                }
+            });
+            renderHistoryList();
+        }
+
+        // 監聽歷史搜尋
+        document.getElementById('searchKeyword').addEventListener('input', renderHistoryList);
+
+        function renderHistoryList() {
+            const searchKeyword = document.getElementById('searchKeyword').value.trim().toLowerCase();
+            const container = document.getElementById('history-container');
+            const combined = getCombinedExpenses();
+
+            const filtered = combined.filter(item => {
+                const matchCategory = currentFilter === '全部' || item.category === currentFilter;
+                const matchSearch = !searchKeyword || (item.note && item.note.toLowerCase().includes(searchKeyword)) || item.category.includes(searchKeyword);
+                return matchCategory && matchSearch;
+            });
+
+            // 依日期排序由新到舊
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            container.innerHTML = '';
+
+            if (filtered.length === 0) {
+                document.getElementById('noHistoryAlert').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('noHistoryAlert').classList.add('hidden');
+
+            filtered.forEach(item => {
+                let badgeClass = "";
+                let iconName = "";
+                let deleteButtonHTML = "";
+
+                if (item.category === '加油') {
+                    badgeClass = "bg-[#FAF0E6] text-[#C6854C] border-[#F2E0D0]";
+                    iconName = "fuel";
+                    deleteButtonHTML = `
+                        <button onclick="deleteExpense(${item.id})" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-xl transition" title="刪除紀錄">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    `;
+                } else if (item.category === '保養') {
+                    badgeClass = "bg-[#EDF2EE] text-[#698A5D] border-[#DEE7E0]";
+                    iconName = "wrench";
+                    deleteButtonHTML = `
+                        <button onclick="deleteExpense(${item.id})" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-xl transition" title="刪除紀錄">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    `;
+                } else if (item.category === '其他') {
+                    badgeClass = "bg-[#EEF1F6] text-[#6B80A5] border-[#DFE4ED]";
+                    iconName = "receipt";
+                    deleteButtonHTML = `
+                        <button onclick="deleteExpense(${item.id})" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-xl transition" title="刪除紀錄">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    `;
+                } else if (item.category === '分期') {
+                    badgeClass = "bg-[#FAF5EF] text-[#A78B75] border-[#F2EDE4]";
+                    iconName = "calendar";
+                    deleteButtonHTML = `
+                        <span class="text-[9px] text-[#A78B75] bg-[#FAF5EF] px-2 py-0.5 rounded border border-[#F2EDE4] select-none">分期帳單</span>
+                    `;
+                }
+
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl p-3.5 border border-[#F2EDE4] flex items-center justify-between shadow-sm hover:border-[#C5A88F]/30 transition";
+                card.innerHTML = `
+                    <div class="flex items-center space-x-2.5">
+                        <div class="p-2.5 rounded-xl border ${badgeClass}">
+                            <i data-lucide="${iconName}" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-xs font-bold text-[#5A4E42]">${item.category}</span>
+                                <span class="text-[10px] text-[#9E8E7F]">• ${item.date}</span>
+                            </div>
+                            <p class="text-[11px] text-[#8E7E70] mt-0.5 line-clamp-1 max-w-[180px]" title="${item.note || ''}">
+                                ${item.note || '<span class="text-[#D0C6BB] italic text-[10px]">無備註</span>'}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2.5">
+                        <span class="text-xs font-bold text-[#5A4E42]">$${item.amount.toLocaleString()}</span>
+                        ${deleteButtonHTML}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        // 刪除日常記帳
+        window.deleteExpense = function(id) {
+            expenses = expenses.filter(item => item.id !== id);
+            saveAllData();
+            renderHistoryList();
+            showToast("已刪除此筆記帳 🍂", "success");
+        };
+
+
+        // ==================== 設定 (Tab 5) 邏輯 ====================
+        function loadSettingsToForm() {
+            document.getElementById('setting-nickname').value = bikeSettings.nickname || '';
+            document.getElementById('setting-plate').value = bikeSettings.plate || '';
+            document.getElementById('setting-mileage').value = bikeSettings.mileage || '';
+
+            document.getElementById('setting-last-oil').value = bikeSettings.lastOil || '';
+            document.getElementById('setting-oil-interval').value = bikeSettings.oilInterval || 1000;
+        }
+
+        // 儲存基本檔案
+        document.getElementById('settingsForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            bikeSettings.nickname = document.getElementById('setting-nickname').value.trim();
+            bikeSettings.plate = document.getElementById('setting-plate').value.trim();
+            bikeSettings.mileage = parseInt(document.getElementById('setting-mileage').value) || 0;
+
+            saveAllData();
+            showToast("基本設定儲存完成！✨", "success");
+            renderHome();
+        });
+
+        // 儲存保養設定
+        document.getElementById('oilReminderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            bikeSettings.lastOil = parseInt(document.getElementById('setting-last-oil').value) || 0;
+            bikeSettings.oilInterval = parseInt(document.getElementById('setting-oil-interval').value) || 1000;
+
+            saveAllData();
+            showToast("保養週期提醒設定完成！🔧", "success");
+            renderHome();
+        });
+
+
+        // ==================== 重設資料防呆與處理 ====================
+        window.confirmResetAll = function() {
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        window.closeConfirmModal = function() {
+            document.getElementById('confirmModal').classList.add('hidden');
+        }
+
+        window.executeResetAll = function() {
+            localStorage.removeItem('motor_expenses_v3');
+            localStorage.removeItem('motor_settings_v3');
+            localStorage.removeItem('motor_installments_v3');
+            
+            expenses = [];
+            bikeSettings = {
+                nickname: "新愛車",
+                plate: "ABC-1234",
+                spec: "125 cc",
+                mileage: 0,
+                lastOil: 0,
+                oilInterval: 1000
+            };
+            installments = initDefaultInstallments();
+
+            saveAllData();
+            closeConfirmModal();
+            showToast("所有資料已重設歸零 🧹", "success");
+
+            // 回首頁
+            switchTab('home');
+        }
+
+        // 啟動加載
+        renderHome();
+    </script>
+</body>
+</html>
